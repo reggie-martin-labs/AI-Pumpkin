@@ -57,13 +57,31 @@ def keyboard_loop(trigger_key: bytes, text: str):
     print(f"Keyboard mode: press '{trigger_key.decode()}' (or Ctrl-C to quit)")
     try:
         import msvcrt
+        import requests
 
         while True:
             ch = msvcrt.getch()
             if ch == trigger_key:
-                wav = Path(timestamped_filename())
-                run_tts_and_wait(text, wav)
-                compute_envelope_and_print(wav)
+                print('Trigger pressed — requesting generation...')
+                # Try to call local API server /generate; if not available, start it detached
+                try:
+                    resp = requests.post('http://localhost:8000/generate', json={})
+                except Exception:
+                    # start server detached
+                    print('API server not running; starting detached server...')
+                    import subprocess
+                    subprocess.Popen([sys.executable, 'api_server.py'], cwd=str(Path('.').absolute()), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    # wait briefly and retry
+                    import time
+                    time.sleep(0.5)
+                    resp = requests.post('http://localhost:8000/generate', json={})
+
+                if resp.ok:
+                    j = resp.json()
+                    print('Generated:', j.get('text'))
+                    print('Audio:', j.get('audio'), 'Frames:', j.get('frames'))
+                else:
+                    print('Generation failed:', resp.text)
             else:
                 # ignore other keys
                 continue

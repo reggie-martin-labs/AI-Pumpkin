@@ -46,9 +46,15 @@ def compute_envelope(path: Path, frame_ms: int = 30):
         frame = samples[i : i + frame_len]
         if len(frame) == 0:
             continue
-    # Normalize by max possible value for the sample width
-    max_val = float(2 ** (8 * sample_width - 1) - 1)
-    level = rms(frame) / max_val
+        # Normalize by max possible value for the sample width
+        # For unsigned 8-bit PCM, center at 128
+        if sample_width == 1:
+            frame = frame.astype(np.int16) - 128
+            max_val = float(2 ** (8 * sample_width - 1) - 1)
+        else:
+            max_val = float(2 ** (8 * sample_width - 1) - 1)
+
+        level = rms(frame) / max_val if max_val > 0 else 0.0
         t = i / sample_rate
         envelope.append({"time_s": round(float(t), 3), "level": float(level)})
     return envelope
