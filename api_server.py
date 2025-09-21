@@ -13,6 +13,10 @@ from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from datetime import datetime
+import os
+
+# Record start time for uptime reporting
+SERVER_START = datetime.now()
 from urllib.parse import parse_qs
 
 ROOT = Path('.').absolute()
@@ -24,6 +28,29 @@ def timestamp(prefix='output') -> str:
 
 class APIHandler(SimpleHTTPRequestHandler):
     server_version = "AI-Pumpkin-API/0.1"
+
+    def _send_json(self, obj, status=HTTPStatus.OK):
+        data = json.dumps(obj).encode('utf-8')
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def do_GET(self):
+        # Health endpoint
+        if self.path == '/health' or self.path == '/health/':
+            uptime = (datetime.now() - SERVER_START).total_seconds()
+            payload = {
+                'status': 'ok',
+                'uptime_s': round(uptime, 2),
+                'pid': os.getpid(),
+                'server_version': self.server_version,
+            }
+            return self._send_json(payload, status=HTTPStatus.OK)
+
+        # Delegate to default behavior for static files
+        return super().do_GET()
 
     def do_POST(self):
         if self.path != '/generate':
