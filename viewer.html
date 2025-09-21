@@ -1,0 +1,161 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>AI-Pumpkin Viewer</title>
+    <style>
+      body { background: #111; color: #fff; display:flex; align-items:center; justify-content:center; height:100vh; }
+      #pumpkin { width: 480px; }
+      .mouth { fill: #000; transition: all 80ms linear; }
+    </style>
+  </head>
+  <body>
+    <div>
+      <svg id="pumpkin" viewBox="0 0 200 200">
+        <circle cx="100" cy="100" r="90" fill="#ff8c00" />
+        <!-- eyes -->
+        <polygon points="60,70 80,50 85,70" fill="#000" />
+        <polygon points="140,70 120,50 115,70" fill="#000" />
+        <!-- mouth placeholder: we'll draw as a rectangle and change height -->
+        <rect id="mouth" class="mouth" x="50" y="120" width="100" height="18" rx="4" />
+      </svg>
+      <div style="text-align:center;margin-top:12px">
+        <div style="margin-top:8px">
+          <button id="trickBtn">Trick or Treat</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const mouth = document.getElementById('mouth');
+      const fileInput = document.getElementById('file');
+
+      let frames = [];
+
+      function renderLevel(lvl) {
+        // lvl expected 0..4
+        const base = 18; // base height
+        const h = base + lvl * 8;
+        const y = 120 - (h - base) / 2;
+        mouth.setAttribute('height', h);
+        mouth.setAttribute('y', y);
+      }
+
+      // If frames query param provided, fetch it (but do not auto-play)
+        function getQueryParam(name) {
+          const params = new URLSearchParams(window.location.search);
+          return params.get(name);
+        }
+
+        async function tryLoadFromQuery() {
+          const framesUrl = getQueryParam('frames');
+          if (!framesUrl) return;
+          try {
+          const resp = await fetch(framesUrl);
+          if (!resp.ok) throw new Error('Fetch failed');
+          frames = await resp.json();
+            // set mouth to neutral and enable play button now that frames are available
+            renderLevel(0);
+            updatePlayButtonState();
+          } catch (e) {
+            console.error('Could not load frames from', framesUrl, e);
+          }
+        }
+
+      tryLoadFromQuery();
+
+      let audioEl = null;
+      let playRequested = false;
+
+      async function playFrames(startTime = null) {
+        if (!frames || frames.length === 0) return;
+        const baseTime = startTime !== null ? startTime : performance.now();
+        for (let i = 0; i < frames.length; i++) {
+          const f = frames[i];
+          const t = f.t * 1000; // ms
+          const now = performance.now() - baseTime;
+          const delay = Math.max(0, t - now);
+          await new Promise(r => setTimeout(r, delay));
+          renderLevel(f.level);
+        }
+      }
+
+      function getAudioParam() {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('audio');
+      }
+
+      function setupAudio() {
+        const audioParam = getAudioParam();
+        if (!audioParam) return;
+        audioEl = new Audio(audioParam);
+        audioEl.preload = 'auto';
+        // do NOT auto-start frames here; frames will start when Play is pressed
+        audioEl.addEventListener('ended', () => {
+          // reset mouth to neutral when audio ends
+          renderLevel(0);
+        });
+        updatePlayButtonState();
+      }
+
+      document.getElementById('trickBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('trickBtn');
+        btn.disabled = true;
+        try {
+          const resp = await fetch('/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+          if (!resp.ok) {
+            const text = await resp.text();
+            throw new Error(text || 'Generate failed');
+          }
+          const j = await resp.json();
+          frames = await (await fetch(j.frames)).json();
+          audioEl = new Audio(j.audio);
+          audioEl.preload = 'auto';
+          renderLevel(0);
+          // play audio and frames together
+          await audioEl.play();
+          const audioStart = performance.now();
+          await new Promise(r => setTimeout(r, 20));
+          playFrames(audioStart);
+        } catch (e) {
+          console.error('Trick or Treat failed', e);
+          alert('Generate failed: ' + (e.message || e));
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
+      function updatePlayButtonState() {
+        const btn = document.getElementById('playBtn');
+        // enable when frames are loaded (audio optional)
+        if (frames && frames.length > 0) {
+          btn.disabled = false;
+        }
+      }
+
+      document.getElementById('playBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('playBtn');
+        btn.disabled = true;
+        try {
+          if (audioEl) {
+            // when audio plays, start frames synced to its playback
+            audioEl.play();
+            const audioStart = performance.now();
+            // small delay to ensure audio started
+            await new Promise(r => setTimeout(r, 50));
+            playFrames(audioStart);
+          } else {
+            // no audio: play frames based on current time
+            playFrames(performance.now());
+          }
+        } catch (e) {
+          console.error('Play failed', e);
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
+      setupAudio();
+    </script>
+  </body>
+</html>

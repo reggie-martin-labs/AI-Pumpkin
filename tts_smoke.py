@@ -98,6 +98,7 @@ def main():
     parser.add_argument("--voice", default="en-US-JennyNeural", help="Azure voice name")
     parser.add_argument("--out", default="output.wav", help="Output filename (will be .wav)")
     parser.add_argument("--block", action="store_true", help="Block until playback finishes")
+    parser.add_argument("--no-play", action="store_true", help="Do not play audio after saving (only write WAV)")
     args = parser.parse_args()
 
     ensure_creds()
@@ -126,6 +127,9 @@ def main():
 
     out_path = save_file_bytes(audio, out_name)
     print(f"Saved: {out_path}")
+    if args.no_play:
+        print("Skipping playback (--no-play)")
+        return
     if args.block:
         print("Playing (blocking)...")
         play_blocking(out_path)
