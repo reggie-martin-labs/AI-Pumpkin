@@ -1,0 +1,6 @@
+body { font-family: system-ui,Segoe UI,Roboto,Arial; background:#111; color:#eee; margin:12px; }
+#controls { display:flex; gap:12px; align-items:center; margin-bottom:8px; }
+canvas { display:block; margin:0 auto; background: #000; border-radius:8px; box-shadow: 0 8px 30px rgba(0,0,0,0.6); }
+
+/* small UI tweaks */
+label { font-size:12px; color:#ccc; }

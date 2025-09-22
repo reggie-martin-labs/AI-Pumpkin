@@ -1,0 +1,16 @@
+{
+  "name": "ai-pumpkin-demo",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "generate:head": "node generate.js head",
+    "generate:mouths": "node generate.js mouths",
+    "start": "npx http-server -c-1 -p 8000"
+  },
+  "dependencies": {
+    "@azure/openai": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
